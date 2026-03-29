@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T.Claw - 设置</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>⚙️ T.Claw 设置</h1>
+            <p>配置你的 API 密钥以开始使用</p>
+        </div>
+        
+        <form class="settings-form" id="settingsForm">
+            <div class="form-group">
+                <label for="apiKey">API Key *</label>
+                <input type="password" id="apiKey" placeholder="输入你的 ARK API Key" value="{{ config.api_key }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="model">模型选择</label>
+                <select id="model">
+                    <option value="doubao-seed-2-0-pro-260215" {% if config.model == 'doubao-seed-2-0-pro-260215' %}selected{% endif %}>豆包 2.0 Pro (预置接入点，推荐)</option>
+                    <option value="doubao-seed-2-0-code-preview-260215" {% if config.model == 'doubao-seed-2-0-code-preview-260215' %}selected{% endif %}>豆包 2.0 Code Preview (代码优化)</option>
+                    <option value="Doubao-Seed-2.0-Pro" {% if config.model == 'Doubao-Seed-2.0-Pro' %}selected{% endif %}>Doubao-Seed-2.0-Pro</option>
+                    <option value="Doubao-Seed-2.0-Lite" {% if config.model == 'Doubao-Seed-2.0-Lite' %}selected{% endif %}>Doubao-Seed-2.0-Lite</option>
+                    <option value="Doubao-Seed-2.0-Mini" {% if config.model == 'Doubao-Seed-2.0-Mini' %}selected{% endif %}>Doubao-Seed-2.0-Mini</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="endpointId">Endpoint ID（可选）</label>
+                <input type="text" id="endpointId" placeholder="如有自定义接入点则填写，否则留空" value="{{ config.endpoint_id }}">
+                <small style="color: #888; display: block; margin-top: 5px;">使用预置接入点时留空即可，免费额度可用</small>
+            </div>
+            
+            <button type="submit" class="save-btn">保存配置</button>
+        </form>
+        
+        <a href="{{ url_for('index') }}" class="back-link">← 返回聊天</a>
+    </div>
+
+    <script>
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const apiKey = document.getElementById('apiKey').value;
+            const endpointId = document.getElementById('endpointId').value;
+            const model = document.getElementById('model').value;
+            
+            try {
+                const response = await fetch('/api/save-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        endpoint_id: endpointId,
+                        model: model
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('配置保存成功！');
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                alert('保存失败：' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
