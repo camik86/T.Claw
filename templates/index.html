@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T.Claw - 桌面控制助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 T.Claw</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="status-indicator">
+                    <span class="status-dot {{ 'disconnected' if not configured else '' }}"></span>
+                    <span>{{ '已连接' if configured else '未配置' }}</span>
+                </div>
+                <a href="{{ url_for('settings') }}" class="settings-link">⚙️</a>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+                你好！我是 T.Claw，你的桌面控制助手。我可以帮你控制鼠标、键盘，创建文件，打开应用等。有什么需要帮助的吗？
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="chatInput" placeholder="输入指令..." {{ 'disabled' if not configured else '' }}>
+            <button class="send-btn" id="sendBtn" {{ 'disabled' if not configured else '' }}>➤</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function addMessage(content, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            messageDiv.textContent = content;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function createAssistantMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, true);
+            chatInput.value = '';
+            sendBtn.disabled = true;
+            chatInput.disabled = true;
+
+            const assistantMessageDiv = createAssistantMessage();
+            let assistantContent = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message, stream: true })
+                });
+
+                if (!response.ok) {
+                    throw new Error('请求失败');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.error) {
+                                    assistantContent = '出错了：' + data.error;
+                                } else if (data.response) {
+                                    assistantContent = data.response;
+                                }
+                                if (data.done) {
+                                    break;
+                                }
+                            } catch (e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+
+                    assistantMessageDiv.textContent = assistantContent;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            } catch (error) {
+                assistantMessageDiv.textContent = '网络错误：' + error.message;
+            } finally {
+                sendBtn.disabled = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        chatInput.focus();
+    </script>
+</body>
+</html>
